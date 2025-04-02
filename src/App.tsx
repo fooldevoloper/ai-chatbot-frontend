@@ -11,6 +11,19 @@ function App() {
   });
   const [activeTab, setActiveTab] = useState<"chat" | "preview">("chat");
 
+  const determineTool = (content: string) => {
+    if (/weather|temperature|forecast/i.test(content)) {
+      return "get_current_weather";
+    }
+    if (/city|location|place info/i.test(content)) {
+      return "get_current_location_info";
+    }
+    if (/hacker news|latest news|tech news/i.test(content)) {
+      return "get_latest_hacker_news";
+    }
+    return "unknown_tool";
+  };
+
   const handleSendMessage = async (content: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -32,54 +45,90 @@ function App() {
       isLoading: true,
     }));
 
+    const selectedTool = determineTool(content);
+    let additionalContext = "";
+
     try {
+      if (selectedTool === "get_current_weather") {
+        const weatherResponse = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=New York&units=metric&appid=YOUR_API_KEY`
+        );
+        const weatherData = await weatherResponse.json();
+
+        additionalContext = `The current weather in ${weatherData.name} is ${weatherData.weather[0].description} with a temperature of ${weatherData.main.temp}°C.`;
+      }
+
+      if (selectedTool === "get_current_location_info") {
+        const locationResponse = await fetch(
+          `https://geocode.xyz/New York?json=1`
+        );
+        const locationData = await locationResponse.json();
+
+        additionalContext = `New York is located at latitude ${locationData.latt} and longitude ${locationData.longt}.`;
+      }
+
+      if (selectedTool === "get_latest_hacker_news") {
+        const newsResponse = await fetch(
+          `https://hacker-news.firebaseio.com/v0/topstories.json`
+        );
+        const topStoryIds = await newsResponse.json();
+        const topStoryId = topStoryIds[0];
+
+        const storyResponse = await fetch(
+          `https://hacker-news.firebaseio.com/v0/item/${topStoryId}.json`
+        );
+        const storyData = await storyResponse.json();
+
+        additionalContext = `The latest Hacker News story is titled "${storyData.title}" and can be read at ${storyData.url}.`;
+      }
+
       const response = await fetch("http://localhost:11434/api/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "llama3.2", // Replace with your actual Ollama model
-          system: "Provide answer directly.", // System prompt
-          prompt: content, // User input
-          stream: true, // Ensure streaming is enabled
-          max_tokens: 20,
+          model: "deepseek-r1:1.5b",
+          prompt: `${content}\n\n${additionalContext}`,
+          stream: true,
         }),
       });
 
       if (!response.ok || !response.body) {
-        throw new Error("Network response was not ok or body is empty");
+        throw new Error("Failed to connect to the chat API.");
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let assistantContent = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text = decoder.decode(value, { stream: true });
-
-        // Process each line in the stream
-        const lines = text.split("\n").filter((line) => line.trim() !== "");
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
 
         for (const line of lines) {
+          if (!line.trim()) continue;
           try {
-            const parsedData = JSON.parse(line);
-            if (parsedData.response) {
-              setChatState((prev) => ({
-                ...prev,
-                messages: prev.messages.map((msg) =>
-                  msg.id === assistantMessage.id
-                    ? { ...msg, content: msg.content + parsedData.response }
-                    : msg
-                ),
-              }));
+            const json = JSON.parse(line);
+            if (json.response) {
+              assistantContent += json.response;
             }
           } catch (error) {
-            console.error("Error parsing stream response:", error);
+            console.warn("Error parsing JSON:", error, "Chunk:", line);
           }
         }
+
+        setChatState((prev) => ({
+          ...prev,
+          messages: prev.messages.map((msg) =>
+            msg.id === assistantMessage.id
+              ? { ...msg, content: assistantContent }
+              : msg
+          ),
+        }));
       }
     } catch (error) {
       console.error("Error:", error);
@@ -87,11 +136,7 @@ function App() {
         ...prev,
         messages: prev.messages.map((msg) =>
           msg.id === assistantMessage.id
-            ? {
-                ...msg,
-                content:
-                  "Sorry, an error occurred while processing your request.",
-              }
+            ? { ...msg, content: "Error fetching real-time data." }
             : msg
         ),
       }));
@@ -166,7 +211,7 @@ function App() {
             />
           </div>
         ) : (
-          <div className="h-full">"Feaure not Implemented"</div>
+          <div className="h-full">"Feature not Implemented"</div>
         )}
       </div>
     </div>
