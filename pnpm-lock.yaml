@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@babel/standalone':
+        specifier: ^7.26.10
+        version: 7.26.10
+      '@webcontainer/api':
+        specifier: 1.5.3-internal.2
+        version: 1.5.3-internal.2
       lucide-react:
         specifier: ^0.344.0
         version: 0.344.0(react@18.3.1)
@@ -146,6 +152,10 @@ packages:
 
   '@babel/runtime@7.26.10':
     resolution: {integrity: sha512-2WJMeRQPHKSPemqk/awGrAiuFfzBmOIPXKizAsVhWH9YJqLZ0H+HS4c8loHGgW6utJ3E/ejXQUsiGaQy2NZ9Fw==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/standalone@7.26.10':
+    resolution: {integrity: sha512-AYXK0hLWfEaK9WAePJqs30qro09a8w7X3YZzjukqtLXreE7xBZYdi5EMrP87T4UrVqmQ9tIX6L6SeTu5LDh3zw==}
     engines: {node: '>=6.9.0'}
 
   '@babel/template@7.26.9':
@@ -579,6 +589,9 @@ packages:
     engines: {node: ^14.18.0 || >=16.0.0}
     peerDependencies:
       vite: ^4.2.0 || ^5.0.0 || ^6.0.0
+
+  '@webcontainer/api@1.5.3-internal.2':
+    resolution: {integrity: sha512-PNel1OQJlibs92zw5ekSeJLxYKXBk/AMnIQ9rJ/5cqJwjFlR242PlpCGJRghiZwQf4jq2p/ntvHyj7P+MHXqpg==}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -1538,6 +1551,8 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
+  '@babel/standalone@7.26.10': {}
+
   '@babel/template@7.26.9':
     dependencies:
       '@babel/code-frame': 7.26.2
@@ -1918,6 +1933,8 @@ snapshots:
       vite: 5.4.14
     transitivePeerDependencies:
       - supports-color
+
+  '@webcontainer/api@1.5.3-internal.2': {}
 
   acorn-jsx@5.3.2(acorn@8.14.1):
     dependencies:
