@@ -11,19 +11,6 @@ function App() {
   });
   const [activeTab, setActiveTab] = useState<"chat" | "preview">("chat");
 
-  const determineTool = (content: string) => {
-    if (/weather|temperature|forecast/i.test(content)) {
-      return "get_current_weather";
-    }
-    if (/city|location|place info/i.test(content)) {
-      return "get_current_location_info";
-    }
-    if (/hacker news|latest news|tech news/i.test(content)) {
-      return "get_latest_hacker_news";
-    }
-    return "unknown_tool";
-  };
-
   const handleSendMessage = async (content: string) => {
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -45,53 +32,13 @@ function App() {
       isLoading: true,
     }));
 
-    const selectedTool = determineTool(content);
-    let additionalContext = "";
-
     try {
-      if (selectedTool === "get_current_weather") {
-        const weatherResponse = await fetch(
-          `https://api.openweathermap.org/data/2.5/weather?q=New York&units=metric&appid=YOUR_API_KEY`
-        );
-        const weatherData = await weatherResponse.json();
-
-        additionalContext = `The current weather in ${weatherData.name} is ${weatherData.weather[0].description} with a temperature of ${weatherData.main.temp}°C.`;
-      }
-
-      if (selectedTool === "get_current_location_info") {
-        const locationResponse = await fetch(
-          `https://geocode.xyz/New York?json=1`
-        );
-        const locationData = await locationResponse.json();
-
-        additionalContext = `New York is located at latitude ${locationData.latt} and longitude ${locationData.longt}.`;
-      }
-
-      if (selectedTool === "get_latest_hacker_news") {
-        const newsResponse = await fetch(
-          `https://hacker-news.firebaseio.com/v0/topstories.json`
-        );
-        const topStoryIds = await newsResponse.json();
-        const topStoryId = topStoryIds[0];
-
-        const storyResponse = await fetch(
-          `https://hacker-news.firebaseio.com/v0/item/${topStoryId}.json`
-        );
-        const storyData = await storyResponse.json();
-
-        additionalContext = `The latest Hacker News story is titled "${storyData.title}" and can be read at ${storyData.url}.`;
-      }
-
-      const response = await fetch("http://localhost:11434/api/generate", {
+      const response = await fetch("http://localhost:5000/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: "deepseek-r1:1.5b",
-          prompt: `${content}\n\n${additionalContext}`,
-          stream: true,
-        }),
+        body: JSON.stringify({ message: content }),
       });
 
       if (!response.ok || !response.body) {
@@ -111,10 +58,11 @@ function App() {
 
         for (const line of lines) {
           if (!line.trim()) continue;
+
           try {
-            const json = JSON.parse(line);
-            if (json.response) {
-              assistantContent += json.response;
+            const json = JSON.parse(line.replace("data: ", ""));
+            if (json.response?.kwargs?.content) {
+              assistantContent += json.response.kwargs.content;
             }
           } catch (error) {
             console.warn("Error parsing JSON:", error, "Chunk:", line);
@@ -136,9 +84,10 @@ function App() {
         ...prev,
         messages: prev.messages.map((msg) =>
           msg.id === assistantMessage.id
-            ? { ...msg, content: "Error fetching real-time data." }
+            ? { ...msg, content: "Error fetching response from the server." }
             : msg
         ),
+        isLoading: false,
       }));
     } finally {
       setChatState((prev) => ({
@@ -147,6 +96,7 @@ function App() {
       }));
     }
   };
+  
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
