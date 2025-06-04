@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ChatInput } from "./components/ChatInput";
 import { ChatMessage } from "./components/ChatMessage";
 import { ChatState, Message } from "./types/chat";
+import { Mistral } from '@mistralai/mistralai';
 
 function App() {
   const [chatState, setChatState] = useState<ChatState>({
@@ -33,51 +34,30 @@ function App() {
     }));
 
     try {
-      const response = await fetch("http://localhost:5000/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: content }),
+      // Use Mistral AI API instead of local API
+      const apiKey = import.meta.env.VITE_MISTRAL_AI_API_KEY;
+      
+      if (!apiKey) {
+        throw new Error("Mistral AI API key is not configured. Please check your .env file.");
+      }
+      
+      const client = new Mistral({ apiKey });
+      
+      const chatResponse = await client.chat.complete({
+        model: 'mistral-large-latest',
+        messages: [{ role: 'user', content: content }],
       });
-
-      if (!response.ok || !response.body) {
-        throw new Error("Failed to connect to the chat API.");
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let assistantContent = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-
-          try {
-            const json = JSON.parse(line.replace("data: ", ""));
-            if (json.response?.kwargs?.content) {
-              assistantContent += json.response.kwargs.content;
-            }
-          } catch (error) {
-            console.warn("Error parsing JSON:", error, "Chunk:", line);
-          }
-        }
-
-        setChatState((prev) => ({
-          ...prev,
-          messages: prev.messages.map((msg) =>
-            msg.id === assistantMessage.id
-              ? { ...msg, content: assistantContent }
-              : msg
-          ),
-        }));
-      }
+      
+      const assistantContent = chatResponse.choices[0].message.content;
+      
+      setChatState((prev) => ({
+        ...prev,
+        messages: prev.messages.map((msg) =>
+          msg.id === assistantMessage.id
+            ? { ...msg, content: assistantContent }
+            : msg
+        ),
+      }));
     } catch (error) {
       console.error("Error:", error);
       setChatState((prev) => ({
